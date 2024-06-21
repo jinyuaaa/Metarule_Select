@@ -88,9 +88,9 @@ class PPO:
         rewards = torch.tensor(transition_dict['rewards'], dtype=torch.float).to(self.device).view(-1,self.num_action_sample, 1)
 
         # advantage function
-        adv = torch.mean(rewards, dim=1, keepdim=True)
-        adv = torch.mean(adv, dim=0, keepdim=True) #TODO:?need?
-        advantage = (rewards - adv).to(self.device)
+        adv_same_task = torch.mean(rewards, dim=1, keepdim=True)
+        adv_all = torch.mean(adv_same_task, dim=0, keepdim=True) #TODO:?need?
+        advantage = (rewards - 0.5*adv_all-0.5*adv_same_task).to(self.device)
 
         probs = torch.repeat_interleave(self.actor(states).unsqueeze(dim=1), self.num_action_sample, dim=1)
         prob_action = torch.prod(probs*actions + (1-probs)*(1-actions),dim=2)

@@ -2,10 +2,13 @@ import matplotlib.pyplot as plt
 import argparse
 import numpy as np
 import random as rd
+import pandas as pd
+from openpyxl import load_workbook
 import torch
 from model import PPO
 import config
 from utils.env import Mario_env
+
 
 if __name__ == '__main__':
 
@@ -36,6 +39,7 @@ if __name__ == '__main__':
     epochs= config_object['epochs']
     num_trails_per_episode = config_object['num_trails_per_episode']
     model_path = config_object['model_path']
+    excel_file_path = config_object['excel_result_path']
 
     # ==================== device setup =======================
     config_object['GPU'] = args['GPU']
@@ -46,19 +50,16 @@ if __name__ == '__main__':
     if config_object['dataset'] == 'mario':
         env = Mario_env(config_object)
 
-    # ==================== prepare data ======================
-    reward_list = []
-    state_shape = env.get_state_shape()
-
-
     # ==================== build model ========================
+    state_shape = env.get_state_shape()
     agent = PPO(state_shape, config_object)
 
     # ==================== on policy training =================
+    reward_list = []
 
     for i in range(num_episodes):
         state = env.reset()
-        episode_reward = 0
+        episode_reward = []
 
         # save data in this episode
         transition_dict = {
@@ -80,10 +81,10 @@ if __name__ == '__main__':
             # new state
             state = env.reset()
             # reward sum
-            episode_reward += reward
-
+            episode_reward.append(np.mean(reward))
         # save the reward of this episode
-        reward_list.append(episode_reward)
+        avg_reward = np.mean(episode_reward)
+        reward_list.append(avg_reward)
         # train
         transition_dict['states'] = np.array(transition_dict['states'])
         transition_dict['actions'] = np.array(transition_dict['actions'])
@@ -92,9 +93,25 @@ if __name__ == '__main__':
         agent.learn(transition_dict)
 
         print(f'iter:{i}, return:{np.mean(reward_list[-1:])}')
+        # save model and plot
+        if i % 25 == 0:
+            torch.save(agent.actor, model_path + 'actor_iter'+str(i)+'.pt')
 
-    # ==================== plot============================
-    torch.save(agent.actor, model_path+'actor.pt')
+            plt.plot(reward_list)
+            plt.title('reward')
+            plt.savefig('./result/result_iter'+str(i)+'.png', bbox_inches='tight')
+
+            data = {
+                'reward': reward_list,
+            }
+            df = pd.DataFrame(data)
+            df.to_excel(excel_file_path, index=False)
+
+    # ==================== plot ===========================
+
     plt.plot(reward_list)
-    plt.title('return')
+    plt.title('reward')
     plt.savefig('./result/result.png', bbox_inches='tight')
+
+    # ==================== save model ======================
+    # torch.save(agent.actor, model_path + 'actor_final.pt')

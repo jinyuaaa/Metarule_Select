@@ -1,8 +1,8 @@
-config = {'num_episodes': 50,
+config = {'num_episodes': 500,
           'num_trails_per_episode': 8,
           'actor_lr': 1e-3,
-          'n_hiddens':32,
-          'num_heads':4,        # n_hiddens is a multiple if num_heads
+          'n_hiddens':128,
+          'num_heads':8,        # n_hiddens is a multiple if num_heads
           'epochs':10,      # Training rounds of a sequence
           'eps': 0.2,       # Parameters of the truncated range in PPO
           'test_p': 0.1,
@@ -11,6 +11,7 @@ config = {'num_episodes': 50,
           'error_reward': -10,
           'num_action_sample': 32,
           'data_path': '/media/shared_space/jiny/AbdGen/',
+          'excel_result_path': './result/result.xlsx',
           'pl_path':'./prolog/',
           'model_path':'./model/',
           'len_guarantee_task': ['right_priority','up_priority','left_priority','down_priority'],
