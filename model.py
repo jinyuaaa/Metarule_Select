@@ -40,15 +40,15 @@ class PolicyNet(nn.Module):
         neg_hidden = self.fc_neg(neg_encoding)
         neg_Attention, _ = self.SelfAttention_neg(neg_hidden,neg_hidden,neg_hidden)
 
-        # [max_pos+max_neg, n_hiddens]
+        # [batch, max_pos+max_neg, n_hiddens]
         case_hidden = torch.concat((pos_Attention, neg_Attention), dim=1)
         case_Attention, _ = self.SelfAttention_case(case_hidden, case_hidden, case_hidden)
-        # [num_metarule, n_hiddens]
+        # [batch, num_metarule, n_hiddens]
         metarule_hidden = self.fc_metarule(torch.repeat_interleave(self.metarule_encoding.unsqueeze(0),x.shape[0],dim=0))
-        # [num_metarule, n_hiddens]
+        # [batch, num_metarule, n_hiddens]
         metarule_CrossAttention, _ = self.CrossAttention_case_metarule(metarule_hidden, case_Attention, case_Attention)
-        # [num_metarule, 1]
-        metarule_prob = self.Sigmoid(self.fc_prob(metarule_CrossAttention))
+        # [batch, num_metarule, 1]
+        metarule_prob = torch.clamp(self.Sigmoid(self.fc_prob(metarule_CrossAttention)), min=1e-7, max=1 - 1e-7)
         print(metarule_prob)
         return metarule_prob
 

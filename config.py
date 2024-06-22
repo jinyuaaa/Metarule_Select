@@ -1,6 +1,6 @@
 config = {'num_episodes': 500,
           'num_trails_per_episode': 8,
-          'actor_lr': 1e-3,
+          'actor_lr': 1e-5,
           'n_hiddens':128,
           'num_heads':8,        # n_hiddens is a multiple if num_heads
           'epochs':10,      # Training rounds of a sequence
@@ -66,10 +66,10 @@ config = {'num_episodes': 500,
 
 bk_prepare = [":- use_module('metagol').\n:- style_check(-singleton).\n\nwidth(2).\nheight(2).\n\nmetagol:min_clauses(1).\nmetagol:max_clauses(4).\n\n",
               "body_pred(up/2).\nbody_pred(down/2).\nbody_pred(left/2).\nbody_pred(right/2).\nbody_pred(bomb/1).\nbody_pred(sea/1).\nbody_pred(chess/1).\nbody_pred(lowest/2).\nbody_pred(far/2).\nbody_pred(jump/2).\nbody_pred(terminate/2).\n\n",
-              "up([[X0,Y0],[X1,Y1]|T], [[X1,Y1]|T]) :-\n    height(H),\n    number(X0),\n    number(X1),\n    number(Y0),\n    number(Y1),\n    Y0 < H,\n    Y1 is Y0 + 1.\n\n",
-              "down([[X0,Y0],[X1,Y1]|T], [[X1,Y1]|T]) :-\n    number(X0),\n    number(X1),\n    number(Y0),\n    number(Y1),\n    Y0 > 0,\n    Y1 is Y0 - 1.\n\n",
-              "left([[X0,Y0],[X1,Y1]|T], [[X1,Y1]|T]) :-\n    number(X0),\n    number(X1),\n    number(Y0),\n    number(Y1),\n    X0 > 0,\n    X1 is X0 - 1.\n\n",
-              "right([[X0,Y0],[X1,Y1]|T], [[X1,Y1]|T]) :-\n    width(W),\n    number(X0),\n    number(X1),\n    number(Y0),\n    number(Y1),\n    X0 < W,\n    X1 is X0 + 1.\n\n",
+              "up([[X0,Y0],[X1,Y1]|T], [[X1,Y1]|T]) :-\n    height(H),\n    number(X0),\n    number(X1),\n    number(Y0),\n    number(Y1),\n    X1 is X0,\n    Y0 < H,\n    Y1 is Y0 + 1.\n\n",
+              "down([[X0,Y0],[X1,Y1]|T], [[X1,Y1]|T]) :-\n    number(X0),\n    number(X1),\n    number(Y0),\n    number(Y1),\n    X1 is X0,\n    Y0 > 0,\n    Y1 is Y0 - 1.\n\n",
+              "left([[X0,Y0],[X1,Y1]|T], [[X1,Y1]|T]) :-\n    number(X0),\n    number(X1),\n    number(Y0),\n    number(Y1),\n    Y1 is Y0,\n    X0 > 0,\n    X1 is X0 - 1.\n\n",
+              "right([[X0,Y0],[X1,Y1]|T], [[X1,Y1]|T]) :-\n    width(W),\n    number(X0),\n    number(X1),\n    number(Y0),\n    number(Y1),\n    Y1 is Y0,\n    X0 < W,\n    X1 is X0 + 1.\n\n",
               "jump([[X0,Y0],[X1,Y1]|T], [[X1,Y1]|T]) :-\n    number(X0),\n    number(X1),\n    number(Y0),\n    number(Y1),\n    abs(X1-X0) =:= 1,\n    abs(Y1-Y0) =:= 1.\n\n",
               "terminate([[X0,Y0]], [[X1,Y1]|T]) :-\n    number(X0),\n    number(X1),\n    number(Y0),\n    number(Y1),\n    X1 is X0,\n    Y1 is Y0.\n\n",
               "lowest([[X0,Y0]], B) :-\n    number(Y0),\n    Y0 is 0.\n\n",
