@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
 import argparse
+import os
 import numpy as np
 import random as rd
 import pandas as pd
-from openpyxl import load_workbook
 import torch
 from model import PPO
 import config
@@ -38,8 +38,24 @@ if __name__ == '__main__':
     n_hiddens = config_object['n_hiddens']
     epochs= config_object['epochs']
     num_trails_per_episode = config_object['num_trails_per_episode']
+
+
+    # ==================== path setup =========================
     model_path = config_object['model_path']
+    pl_path = config_object['pl_path']
+    result_path = config_object['result_path']
     excel_file_path = config_object['excel_result_path']
+    log_file_path = config_object['log_file_path']
+
+
+    if not os.path.exists(result_path):
+        os.makedirs(result_path)
+
+    if not os.path.exists(model_path):
+        os.makedirs(model_path)
+
+    if os.path.exists(log_file_path):
+        os.remove(log_file_path)
 
     # ==================== device setup =======================
     config_object['GPU'] = args['GPU']
@@ -92,7 +108,10 @@ if __name__ == '__main__':
 
         agent.learn(transition_dict)
 
-        print(f'iter:{i}, return:{np.mean(reward_list[-1:])}')
+        with open(log_file_path, 'a') as f:
+            print(f'iter:{i}, return:{np.mean(reward_list[-1:])}',file=f)
+            print(f'iter:{i}, return:{np.mean(reward_list[-1:])}')
+
         # save model and plot
         if i % 25 == 0:
             torch.save(agent.actor, model_path + 'actor_iter'+str(i)+'.pt')
@@ -114,4 +133,4 @@ if __name__ == '__main__':
     plt.savefig('./result/result.png', bbox_inches='tight')
 
     # ==================== save model ======================
-    # torch.save(agent.actor, model_path + 'actor_final.pt')
+    torch.save(agent.actor, model_path + 'actor_final.pt')

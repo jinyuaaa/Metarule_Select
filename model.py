@@ -13,6 +13,7 @@ class PolicyNet(nn.Module):
         self.dropout = config['dropout']
         self.max_pos = config['max_pos']
         self.max_neg = config['max_neg']
+        self.log_file_path = config['log_file_path']
 
         # [num_meta_rule, encoding_size]
         self.metarule_encoding = torch.tensor([self.metarule_encoding_map[i] for i in range(self.num_metarule)], dtype=torch.float32).to(self.device)
@@ -49,7 +50,9 @@ class PolicyNet(nn.Module):
         metarule_CrossAttention, _ = self.CrossAttention_case_metarule(metarule_hidden, case_Attention, case_Attention)
         # [batch, num_metarule, 1]
         metarule_prob = torch.clamp(self.Sigmoid(self.fc_prob(metarule_CrossAttention)), min=1e-7, max=1 - 1e-7)
-        print(metarule_prob)
+        with open(self.log_file_path, 'a') as f:
+            print(metarule_prob, file=f)
+            print(metarule_prob)
         return metarule_prob
 
 class PPO:

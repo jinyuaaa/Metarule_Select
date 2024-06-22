@@ -1,5 +1,4 @@
 import numpy as np
-import torch
 import asyncio
 
 from utils.dataloader import MarioDataLoader
@@ -16,6 +15,7 @@ class Mario_env:
         self.B_len = config['B_len']
         self.pl_path = config['pl_path']
         self.num_action_sample = config['num_action_sample']
+        self.log_file_path = config['log_file_path']
 
         # +1:frame type is not designed in B
         self.state_shape = (self.max_pos+self.max_neg, self.max_pic_num+self.B_len+1)
@@ -54,19 +54,26 @@ class Mario_env:
             loop.run_until_complete(task)
 
             pl_result, pl_out = task.result()
-            if pl_result == -1:
-                reward = self.error_reward
-                print(self.task_name + ' sample No.' + str(i) + ':\nERROR')
-                print('reward: ' + str(reward)+'\n')
-            elif pl_result == -2:
-                reward = self.error_reward
-                print(self.task_name + ' sample No.' + str(i) + ':\nTime out')
-                print('reward: ' + str(reward)+'\n')
-            elif pl_result == 0:
-                reward = -int(np.sum(action[i]))
-                print(self.task_name + ' sample No.' + str(i) + ':')
-                print(read_pl_out(pl_out))
-                print('reward: '+str(reward)+'\n')
+            with open(self.log_file_path, 'a') as f:
+                if pl_result == -1:
+                    reward = self.error_reward
+                    result = self.task_name + ' sample No.' + str(i) + ':\nERROR\n'
+                    result = result + 'reward: ' + str(reward)+'\n'
+                    print(result,file=f)
+                    print(result)
+                elif pl_result == -2:
+                    reward = self.error_reward
+                    result = self.task_name + ' sample No.' + str(i) + ':\nTime out\n'
+                    result = result + 'reward: ' + str(reward)+'\n'
+                    print(result,file=f)
+                    print(result)
+                elif pl_result == 0:
+                    reward = -int(np.sum(action[i]))
+                    result = self.task_name + ' sample No.' + str(i) + ':\n'
+                    result = result + read_pl_out(pl_out)+'\n'
+                    result = result + 'reward: '+str(reward)+'\n'
+                    print(result,file=f)
+                    print(result)
             reward_of_sample_actions.append(reward)
             reward_np = np.array(reward_of_sample_actions)
         return reward_np
