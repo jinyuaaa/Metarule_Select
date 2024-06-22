@@ -92,8 +92,9 @@ class PPO:
 
         # advantage function
         adv_same_task = torch.mean(rewards, dim=1, keepdim=True)
-        adv_all = torch.mean(adv_same_task, dim=0, keepdim=True) #TODO:?need?
-        advantage = (rewards - 0.5*adv_all-0.5*adv_same_task).to(self.device)
+        # adv_all = torch.mean(adv_same_task, dim=0, keepdim=True)
+        # advantage = (rewards - 0.5*adv_all-0.5*adv_same_task).to(self.device)
+        advantage = (rewards - adv_same_task).to(self.device)
 
         probs = torch.repeat_interleave(self.actor(states).unsqueeze(dim=1), self.num_action_sample, dim=1)
         prob_action = torch.prod(probs*actions + (1-probs)*(1-actions),dim=2)
