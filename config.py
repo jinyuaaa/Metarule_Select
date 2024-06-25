@@ -1,15 +1,20 @@
-config = {'num_episodes': 500,
+config = {'num_episodes': 700,
           'num_trails_per_episode': 8,
-          'actor_lr': 1e-5,
+          'actor_lr': 1e-5,     # Initial learning rate
+          'lr_step_size':50,
+          'lr_gamma':0.8,      # for step_lr
           'n_hiddens':128,
-          'num_heads':8,        # n_hiddens is a multiple if num_heads
-          'epochs':10,      # Training rounds of a sequence
+          'num_heads':8,        # n_hiddens is a multiple of num_heads
+          'epochs':8,      # Training rounds of a sequence
           'eps': 0.2,       # Parameters of the truncated range in PPO
-          'test_p': 0.1,
-          'dropout': 0,
+          'epsilon': 0.1,      # Initial Exploration rate
+          'epsilon_decay_rate': 0.9995,
+          'test_p': 0.3,
+          'dropout': 0.1,
           'pl_time_limit': 20,
-          'error_reward': -10,
+          'error_reward': 0,
           'num_action_sample': 32,
+          'gae_mode':'self',
           'data_path': '/media/shared_space/jiny/AbdGen/',
           'excel_result_path': './result/result.xlsx',
           'result_path': './result/',
@@ -18,9 +23,9 @@ config = {'num_episodes': 500,
           'log_file_path':'./result/log.txt',
           'len_guarantee_task': ['right_priority','up_priority','left_priority','down_priority'],
           'train_task':['right_priority','up_priority', 'just_left','just_down',
-                        'right_one_step','left_one_step','far','chess_jump'],
+                        'right_one_step','left_one_step','far','chess_jump','bomb_far'],
           'test_task':['left_priority','down_priority', 'just_right','just_up',
-                       'up_one_step','down_one_step','sea','bomb_far'],
+                       'up_one_step','down_one_step', 'sea'],
           'max_pic_num': 5,
           'B_len': 3,
           'num_pos': [5, 10, 20, 30],
@@ -28,13 +33,21 @@ config = {'num_episodes': 500,
           'max_pos':30,
           'max_neg':60,
           'num_metarule': 6,
-          'metarule_encoding_map':{
-              0:[1,4,5,2,4,5,0,0,0],
-              1:[1,4,5,2,5,4,0,0,0],
-              2:[1,4,5,2,4,3,4,5,0],
-              3:[1,4,5,2,4,5,3,5,0],
-              4:[1,4,5,2,4,6,3,6,5],
-              5:[1,4,5,2,4,6,1,6,5]},
+          # 'metarule_encoding_map':{
+          #     0:[1,4,5,2,4,5,0,0,0],
+          #     1:[1,4,5,2,5,4,0,0,0],
+          #     2:[1,4,5,2,4,3,4,5,0],
+          #     3:[1,4,5,2,4,5,3,5,0],
+          #     4:[1,4,5,2,4,6,3,6,5],
+          #     5:[1,4,5,2,4,6,1,6,5]},
+          # 'metarule_encoding_map': {
+          #     0: [1, 0, 0, 0, 0, 0],
+          #     1: [0, 1, 0, 0, 0, 0],
+          #     2: [0, 0, 1, 0, 0, 0],
+          #     3: [0, 0, 0, 1, 0, 0],
+          #     4: [0, 0, 0, 0, 1, 0],
+          #     5: [0, 0, 0, 0, 0, 1]},
+          'metarule_embedding_dim': 16,
           'metarule_pl_map': {
               0: "metarule([P,Q], [P,A,B], [[Q,A,B]]).\n",
               1: "metarule([P,Q], [P,A,B], [[Q,B,A]]).\n",

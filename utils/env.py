@@ -33,7 +33,7 @@ class Mario_env:
     # sample a task
     def reset(self):
         # labels_pos:[pos_num_per_bag, label_size]
-        # labels_pos:[neg_num_per_bag, label_size]
+        # labels_neg:[neg_num_per_bag, label_size]
         self.task_name, labels_pos, labels_neg = self.loader.get_train_data()
         task_writer(self.task_name, labels_pos, labels_neg)
         # state include pos_case, neg_case and Metarule selected status
@@ -43,9 +43,22 @@ class Mario_env:
         self.state = np.concatenate((labels_pos, labels_pos_padding, labels_neg, labels_neg_padding), axis=0)
         return self.state
 
+    def reset_test(self, task_name):
+        # labels_pos:[pos_num_per_bag, label_size]
+        # labels_neg:[neg_num_per_bag, label_size]
+        self.task_name = task_name
+        labels_pos, labels_neg = self.loader.get_test_data(task_name)
+        task_writer(task_name, labels_pos, labels_neg)
+        # state include pos_case, neg_case and Metarule selected status
+        # state:[pos_num_per_bag+neg_num_per_bag,size]
+        labels_pos_padding = -np.ones((self.max_pos - labels_pos.shape[0],labels_pos.shape[1]))
+        labels_neg_padding = -np.ones((self.max_neg - labels_neg.shape[0],labels_pos.shape[1]))
+        self.state = np.concatenate((labels_pos, labels_pos_padding, labels_neg, labels_neg_padding), axis=0)
+        return self.state
+
     def step(self, action):
         reward_of_sample_actions = []
-        for i in range(self.num_action_sample):
+        for i in range(len(action)):
             bk_writer(self.task_name, action[i])
             file_run = self.pl_path + 'task_' + self.task_name + '.pl'
 
@@ -68,7 +81,9 @@ class Mario_env:
                     print(result,file=f)
                     print(result)
                 elif pl_result == 0:
-                    reward = -int(np.sum(action[i]))
+                    # reward = -int(pow(2, np.sum(action[i])))
+                    # reward = -int(np.sum(action[i]))
+                    reward = int(pow(2, self.num_metarule-np.sum(action[i])))
                     result = self.task_name + ' sample No.' + str(i) + ':\n'
                     result = result + read_pl_out(pl_out)+'\n'
                     result = result + 'reward: '+str(reward)+'\n'
