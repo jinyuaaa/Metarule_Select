@@ -50,11 +50,15 @@ class MarioDataLoader:
             array_label[self.max_pic_num + i] = case[1][i]
         return array_label
 
-    def get_train_data(self):
+    def get_train_data(self, task_name=None):
         # sample task
-        task_name = rd.choices(self.train_task, k=1)[0]
-        labels_pos, labels_neg = self.get_data_train_task(task_name, 'train')
-        return  task_name, labels_pos, labels_neg
+        if task_name is None:
+            task_name = rd.choices(self.train_task, k=1)[0]
+            labels_pos, labels_neg = self.get_data_train_task(task_name, 'train')
+            return  task_name, labels_pos, labels_neg
+        else:
+            labels_pos, labels_neg = self.get_data_train_task(task_name, 'train')
+            return labels_pos, labels_neg
 
     def get_test_data(self, task_name):
         if task_name in self.test_task:

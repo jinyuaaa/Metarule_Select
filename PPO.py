@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str,
                         help='dsprites or mario or mnist', default='mario')
     parser.add_argument('--GPU', type=str,
-                        help='# of GPU to use', default='1')
+                        help='# of GPU to use', default='3')
     parser.add_argument('--num_cpu_core', type=int,
                         help='CPU core to use', default='16')
     parser.add_argument('--seed', type=int,
@@ -81,12 +81,14 @@ if __name__ == '__main__':
 
     # ==================== on policy training =================
     train_reward_list = []
+    test_in_train_case_reward_list = []
     test_case_reward_list = []
     test_task_reward_list = []
 
     for i in tqdm(range(num_episodes)):
         state = env.reset()
         episode_train_reward = []
+        episode_test_in_train_case_reward = []
         episode_test_case_reward = []
         episode_test_task_reward = []
 
@@ -121,6 +123,14 @@ if __name__ == '__main__':
         # save the reward of this episode
         train_reward_list.append(np.mean(episode_train_reward))
 
+        # test in train case to get a reward that can measure without exploratory disturbance
+        for task_name in train_task:
+            state = env.reset(task_name)
+            action = agent.take_action(np.expand_dims(state, axis=0), 'test')
+            reward = env.step(action)
+            episode_test_in_train_case_reward.append(reward)
+        test_in_train_case_reward_list.append(np.mean(episode_test_in_train_case_reward))
+
 
         # test case in train tasks
         for task_name in train_task:
@@ -143,6 +153,8 @@ if __name__ == '__main__':
             print(f'iter:{i}')
             print(f'train reward:{train_reward_list[-1:]}', file=f)
             print(f'train reward:{train_reward_list[-1:]}')
+            print(f'test in train case reward:{test_in_train_case_reward_list[-1:]}', file=f)
+            print(f'test in train case reward:{test_in_train_case_reward_list[-1:]}')
             print(f'test case reward:{test_case_reward_list[-1:]}', file=f)
             print(f'test case reward:{test_case_reward_list[-1:]}')
             print(f'test task reward:{test_task_reward_list[-1:]}', file=f)
@@ -157,6 +169,11 @@ if __name__ == '__main__':
             plt.savefig(result_path+'train_reward_iter'+str(i)+'.png', bbox_inches='tight')
             plt.clf()
 
+            plt.plot(test_in_train_case_reward_list)
+            plt.title('test_in_train_case_reward')
+            plt.savefig(result_path+'test_in_train_case_reward_iter'+str(i)+'.png', bbox_inches='tight')
+            plt.clf()
+
             plt.plot(test_case_reward_list)
             plt.title('test case reward')
             plt.savefig(result_path+'test_case_reward_iter'+str(i)+'.png', bbox_inches='tight')
@@ -169,6 +186,7 @@ if __name__ == '__main__':
 
             data = {
                 'train reward': train_reward_list,
+                'test_in_train_case_reward': test_in_train_case_reward_list,
                 'test case reward': test_case_reward_list,
                 'test task reward': test_task_reward_list
             }
@@ -180,6 +198,11 @@ if __name__ == '__main__':
     plt.plot(train_reward_list)
     plt.title('train reward')
     plt.savefig(result_path + 'train_reward.png', bbox_inches='tight')
+    plt.clf()
+
+    plt.plot(test_in_train_case_reward_list)
+    plt.title('test_in_train_case_reward')
+    plt.savefig(result_path + 'test_in_train_case_reward.png', bbox_inches='tight')
     plt.clf()
 
     plt.plot(test_case_reward_list)

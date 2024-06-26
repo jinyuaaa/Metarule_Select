@@ -13,14 +13,18 @@ class Mario_env:
         self.max_pic_num = config['max_pic_num']
         self.error_reward = config['error_reward']
         self.B_len = config['B_len']
-        self.pl_path = config['pl_path']
         self.num_action_sample = config['num_action_sample']
+        self.noise = config['noise']
+        self.noise_rate = config['noise_rate']
+
         self.log_file_path = config['log_file_path']
+        self.pl_path = config['pl_path']
 
         # +1:frame type is not designed in B
         self.state_shape = (self.max_pos+self.max_neg, self.max_pic_num+self.B_len+1)
         self.action_shape = (self.num_metarule,)
         self.state = None
+        self.ground_state = None
         self.task_name = None
 
 
@@ -30,17 +34,31 @@ class Mario_env:
     def get_action_shape(self):
         return self.action_shape
 
+    def add_noise(self, state):
+        random_matrix = np.random.rand(*state.shape)
+        random_values = np.random.randint(0, 10, state.shape)
+        # make sure -1 is kept
+        keep_mask = np.where(state == -1, True, random_matrix >= self.noise_rate)
+        noisy_state = np.where(keep_mask, state, random_values)
+        return noisy_state
+
     # sample a task
-    def reset(self):
+    def reset(self, task_name=None):
         # labels_pos:[pos_num_per_bag, label_size]
         # labels_neg:[neg_num_per_bag, label_size]
-        self.task_name, labels_pos, labels_neg = self.loader.get_train_data()
+        if task_name is None:
+            self.task_name, labels_pos, labels_neg = self.loader.get_train_data()
+        else:
+            self.task_name = task_name
+            labels_pos, labels_neg = self.loader.get_train_data(self.task_name)
         task_writer(self.task_name, labels_pos, labels_neg)
         # state include pos_case, neg_case and Metarule selected status
         # state:[pos_num_per_bag+neg_num_per_bag,size]
         labels_pos_padding = -np.ones((self.max_pos - labels_pos.shape[0],labels_pos.shape[1]))
         labels_neg_padding = -np.ones((self.max_neg - labels_neg.shape[0],labels_pos.shape[1]))
         self.state = np.concatenate((labels_pos, labels_pos_padding, labels_neg, labels_neg_padding), axis=0)
+        if self.noise:
+            self.state = self.add_noise(self.state)
         return self.state
 
     def reset_test(self, task_name):
@@ -54,6 +72,8 @@ class Mario_env:
         labels_pos_padding = -np.ones((self.max_pos - labels_pos.shape[0],labels_pos.shape[1]))
         labels_neg_padding = -np.ones((self.max_neg - labels_neg.shape[0],labels_pos.shape[1]))
         self.state = np.concatenate((labels_pos, labels_pos_padding, labels_neg, labels_neg_padding), axis=0)
+        if self.noise:
+            self.state = self.add_noise(self.state)
         return self.state
 
     def step(self, action):
@@ -90,5 +110,4 @@ class Mario_env:
                     print(result,file=f)
                     print(result)
             reward_of_sample_actions.append(reward)
-            reward_np = np.array(reward_of_sample_actions)
-        return reward_np
+        return np.array(reward_of_sample_actions)

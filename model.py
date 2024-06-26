@@ -16,32 +16,40 @@ class PolicyNet(nn.Module):
         self.max_pos = config['max_pos']
         self.max_neg = config['max_neg']
         self.log_file_path = config['log_file_path']
+        self.padding_mask = config['padding_mask']
+        self.relu = config['relu']
 
         # [num_meta_rule, encoding_size]
         # self.metarule_encoding = torch.tensor([self.metarule_encoding_map[i] for i in range(self.num_metarule)], dtype=torch.float32).to(self.device)
 
         self.embedding = nn.Embedding(self.num_metarule, self.metarule_embedding_dim)      #TODO:how to embed metarule
-        self.fc_pos = nn.Sequential(
-            nn.Linear(state_shape[1],  self.n_hiddens),
-            nn.ReLU(),
-            nn.Linear( self.n_hiddens,  self.n_hiddens)
-        )
 
-        self.fc_neg = nn.Sequential(
-            nn.Linear(state_shape[1], self.n_hiddens),
-            nn.ReLU(),
-            nn.Linear(self.n_hiddens, self.n_hiddens)
-        )
+        if self.relu:
+            self.fc_pos = nn.Sequential(
+                nn.Linear(state_shape[1],  self.n_hiddens),
+                nn.ReLU(),
+                nn.Linear( self.n_hiddens,  self.n_hiddens)
+            )
+            self.fc_neg = nn.Sequential(
+                nn.Linear(state_shape[1], self.n_hiddens),
+                nn.ReLU(),
+                nn.Linear(self.n_hiddens, self.n_hiddens)
+            )
+            self.fc_metarule = nn.Sequential(
+                nn.Linear(self.metarule_embedding_dim, self.n_hiddens),
+                nn.ReLU(),
+                nn.Linear(self.n_hiddens, self.n_hiddens)
+            )
+        else:
+            self.fc_pos = nn.Linear(state_shape[1],  self.n_hiddens)
+            self.fc_neg = nn.Linear(state_shape[1], self.n_hiddens)
+            self.fc_metarule = nn.Linear(self.metarule_embedding_dim, self.n_hiddens)
 
         self.SelfAttention_pos = nn.MultiheadAttention(embed_dim=self.n_hiddens, num_heads=self.num_heads, dropout=self.dropout, batch_first=True)
         self.SelfAttention_neg = nn.MultiheadAttention(embed_dim=self.n_hiddens, num_heads=self.num_heads, dropout=self.dropout, batch_first=True)
         self.SelfAttention_case = nn.MultiheadAttention(embed_dim=self.n_hiddens, num_heads=self.num_heads, dropout=self.dropout, batch_first=True)
 
-        self.fc_metarule = nn.Sequential(
-            nn.Linear(self.metarule_embedding_dim,  self.n_hiddens),
-            nn.ReLU(),
-            nn.Linear( self.n_hiddens,  self.n_hiddens)
-        )
+
 
         # self.fc_metarule = nn.Sequential(
         #     nn.Linear(self.metarule_encoding.shape[1],  self.n_hiddens),
@@ -64,15 +72,21 @@ class PolicyNet(nn.Module):
 
         # [batch, max_pos, hidden]
         pos_hidden = self.fc_pos(pos_encoding)
-        pos_Attention, _= self.SelfAttention_pos(pos_hidden,pos_hidden,pos_hidden)
         # [batch, max_neg, hidden]
         neg_hidden = self.fc_neg(neg_encoding)
-        neg_Attention, _ = self.SelfAttention_neg(neg_hidden,neg_hidden,neg_hidden)
+
+        if self.padding_mask:
+            pos_mask = (pos_encoding == -1).all(dim=2)
+            neg_mask = (neg_encoding == -1).all(dim=2)
+            pos_Attention, _ = self.SelfAttention_pos(pos_hidden, pos_hidden, pos_hidden, key_padding_mask=pos_mask)
+            neg_Attention, _ = self.SelfAttention_neg(neg_hidden, neg_hidden, neg_hidden, key_padding_mask=neg_mask)
+        else:
+            pos_Attention, _ = self.SelfAttention_pos(pos_hidden, pos_hidden, pos_hidden)
+            neg_Attention, _ = self.SelfAttention_neg(neg_hidden, neg_hidden, neg_hidden)
 
         # [batch, max_pos+max_neg, n_hiddens]
         case_hidden = torch.concat((pos_Attention, neg_Attention), dim=1)
         case_Attention, _ = self.SelfAttention_case(case_hidden, case_hidden, case_hidden)
-
 
         # [batch, num_metarule, n_hiddens]
         metarule_hidden = self.fc_metarule(torch.repeat_interleave(self.embedding.weight.unsqueeze(0),x.shape[0],dim=0))
