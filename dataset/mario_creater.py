@@ -1,9 +1,10 @@
 import os
-from itertools import product
+from itertools import product, permutations
 
 import numpy as np
 from PIL import Image
 from matplotlib import use
+import random as rd
 from numpy import random
 from tqdm import tqdm
 
@@ -13,8 +14,8 @@ use('Agg')
 # =================== prepare icons ===========================
 agents = ['mario']
 targets = ['coin', 'bomb']
-backgrounds = ['flowers1', 'grass', 'sand', 'sea', 'chessboard', 'chessboard_blue', 'chessboard_pink']
-frames = ['brick', 'brick3', 'white_panel', 'glass', 'concrete']
+backgrounds = ['flowers1', 'sea', 'chessboard_pink']
+frames = ['brick', 'brick2', 'brick3', 'green_panel', 'white_panel', 'glass', 'concrete']
 
 ICONS = {
     'glass': f'./mario_icons/glass.png',
@@ -276,14 +277,9 @@ def onestep(w, h, B_size, direction):
     return labels
 
 def sea(w, h, B_size):
-    pos_list = []
-    for x in range(w):
-        for y in range(h):
-            pos_list.append((x, y))
-
     A_list = []
     for x_start, y_start in product(range(w), range(h)):
-        for x_finish, y_finish in product(range(w), [0]):
+        for x_finish, y_finish in product(range(w), range(h)):
             if x_finish != x_start or y_finish >= y_start:
                 continue
             pos = list()
@@ -294,8 +290,10 @@ def sea(w, h, B_size):
                 y_now = y_now + (y_finish - y_now)/abs(y_finish - y_now)
                 pos.append((int(x_now), int(y_now)))
             A_list.append(pos)
-    B_list = list(map(list, product(pos_list, range(B_size[1]), [3], range(B_size[3]))))
+
+    B_list = list(map(list, product(range(B_size[1]), [1], range(B_size[3]))))
     labels = list(map(list, product(A_list, B_list)))
+    labels = list(map(add_target_pos, labels))
     return labels
 
 def far(w, h, B_size):
@@ -326,6 +324,43 @@ def bomb_far(w, h, B_size):
     labels = list(map(move_target_pos, labels))
     return labels
 
+def flower(w, h, B_size):
+    A_list = []
+    direction = 'right'
+    for x_start, y_start in product(range(w), range(h)):
+        for x_finish, y_finish in product(range(w), range(h)):
+            if direction in ['right', 'up'] and \
+                    (x_finish - x_start < 0 or y_finish - y_start < 0):
+                continue
+            if direction in ['left', 'down'] and \
+                    (x_finish - x_start > 0 or y_finish - y_start > 0):
+                continue
+            if x_finish - x_start == 0 and y_finish - y_start == 0:
+                continue
+            pos = list()
+            x_now = x_start
+            y_now = y_start
+            pos.append((x_now, y_now))
+            if direction in ['right','left']:
+                while x_finish != x_now:
+                    x_now = x_now + (x_finish - x_now)/abs(x_finish - x_now)
+                    pos.append((int(x_now), int(y_now)))
+                while y_finish != y_now:
+                    y_now = y_now + (y_finish - y_now)/abs(y_finish - y_now)
+                    pos.append((int(x_now), int(y_now)))
+            if direction in ['down', 'up']:
+                while y_finish != y_now:
+                    y_now = y_now + (y_finish - y_now)/abs(y_finish - y_now)
+                    pos.append((int(x_now), int(y_now)))
+                while x_finish != x_now:
+                    x_now = x_now + (x_finish - x_now)/abs(x_finish - x_now)
+                    pos.append((int(x_now), int(y_now)))
+            A_list.append(pos)
+    B_list = list(map(list, product(range(B_size[1]), [0], range(B_size[3]))))
+    labels = list(map(list, product(A_list, B_list)))
+    labels = list(map(add_target_pos, labels))
+    return labels
+
 def chess_jump(w, h, pic_num, B_size):
     pos_list = []
     for x in range(w):
@@ -349,7 +384,7 @@ def chess_jump(w, h, pic_num, B_size):
             continue
         A_list_jump.append(A)
 
-    B_list = list(map(list, product(range(B_size[1]), [4,5,6], range(B_size[3]))))
+    B_list = list(map(list, product(range(B_size[1]), [2], range(B_size[3]))))
     labels = list(map(list, product(A_list_jump, B_list)))
     labels = list(map(add_target_pos, labels))
     return labels
@@ -362,13 +397,13 @@ def generate_all_labels(w, h, pic_num, B_size):
 
     A_list = []
     for n in range(2, pic_num + 1):
-        A_list = A_list + list(map(list, product(pos_list, repeat=n)))
+        A_list = A_list + list(map(list, permutations(pos_list, n)))
 
     B_list = list(map(list, product(pos_list, range(B_size[1]), range(B_size[2]), range(B_size[3]))))
     labels = list(map(list, product(A_list, B_list)))
     return labels
 
-def generate_all_path_labels(w, h, pic_num, B_size):
+def generate_all_path_labels(w, h, pic_num, B_size, background=None, movement_list=['right','up']):
     pos_list = []
     for x in range(w):
         for y in range(h):
@@ -376,7 +411,7 @@ def generate_all_path_labels(w, h, pic_num, B_size):
 
     A_list = []
     for n in range(2, pic_num + 1):
-        A_list = A_list + list(map(list, product(pos_list, repeat=n)))
+        A_list = A_list + list(map(list, permutations(pos_list, n)))
 
     A_list_path = []
     for j in range(len(A_list)):
@@ -388,14 +423,19 @@ def generate_all_path_labels(w, h, pic_num, B_size):
             continue
         for k in range(len(A) - 1):
             movement = define_move(A[k], A[k + 1])
-            if movement is None or movement == 'jump':
+            if movement not in movement_list:
                 flag = False
                 break
         if not flag:
             continue
         A_list_path.append(A)
+    if background is None:
+        B_list = list(map(list, product(range(B_size[1]), range(B_size[2]), range(B_size[3]))))
+    elif background=='sea':
+        B_list = list(map(list, product(range(B_size[1]), [1], range(B_size[3]))))
+    elif background=='flower':
+        B_list = list(map(list, product(range(B_size[1]), [0], range(B_size[3]))))
 
-    B_list = list(map(list, product(range(B_size[1]), range(B_size[2]), range(B_size[3]))))
     labels = list(map(list, product(A_list_path, B_list)))
     labels = list(map(add_target_pos, labels))
     return labels
@@ -409,7 +449,7 @@ def generate_all_jump_labels(w, h, pic_num, B_size):
 
     A_list = []
     for n in range(2, pic_num + 1):
-        A_list = A_list + list(map(list, product(pos_list, repeat=n)))
+        A_list = A_list + list(map(list, permutations(pos_list, n)))
 
     A_list_jump = []
     for j in range(len(A_list)):
@@ -427,35 +467,6 @@ def generate_all_jump_labels(w, h, pic_num, B_size):
     B_list = list(map(list, product(range(B_size[1]), range(B_size[2]), range(B_size[3]))))
     labels = list(map(list, product(A_list_jump, B_list)))
     labels = list(map(add_target_pos, labels))
-    return labels
-
-def generate_all_down_lowest_labels(w, h, pic_num, B_size):
-    pos_list = []
-    for x in range(w):
-        for y in range(h):
-            pos_list.append((x, y))
-
-    A_list = []
-    for n in range(2, pic_num + 1):
-        A_list = A_list + list(map(list, product(pos_list, repeat=n)))
-
-    A_list_down_lowest = []
-    for j in range(len(A_list)):
-        flag = True
-        A = list(A_list[j])
-        if A[-1][-1]!=0:
-            continue
-        for k in range(len(A) - 1):
-            movement = define_move(A[k], A[k + 1])
-            if movement != 'down':
-                flag = False
-                break
-        if not flag:
-            continue
-        A_list_down_lowest.append(A)
-
-    B_list = list(map(list, product(pos_list, range(B_size[1]), range(B_size[2]), range(B_size[3]))))
-    labels = list(map(list, product(A_list_down_lowest, B_list)))
     return labels
 
 def generate_neg_label(labels_pos, labels_all, num, min_neg_len):
@@ -497,14 +508,19 @@ if __name__ == '__main__':
     random.seed(888)
     width = 3
     height = 3
-    label_B_size = [width*height, 2, 7, 5]      # [target position, target type, background type]
+    label_B_size = [width*height, 2, 3, 7]      # [target position, target type, background type, frame type]
     neg_num = 3000
+    max_pos_num = 3000
     min_neg_num_default = 2
-    path_p = 0.8        # the percentage of having path and terminate in neg case
+    path_p = 0.6        # the percentage of having path and terminate in neg case
     jump_p = 0.5        # the percentage of having jump and terminate path in neg case
-    down_lowest_p = 0.5        # the percentage of all down_lowest path in neg case
+    just_down_p = 0.2        # the percentage of all down_lowest path in neg case
+    sea_path_p = 0.7
+    right_priority_p = 0.2
+    flower_path_p = 0.7
     # =================== folder set =====================
-    folder = f'/media/shared_space/jiny/AbdGen/dataset'
+    folder = f'/home/jiny/AbdGen_data/dataset/'
+    # file = f'mario_right_priority.npz'
     file = f'mario.npz'
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -514,17 +530,20 @@ if __name__ == '__main__':
     lbls_pos = {}
     imgs_neg = {}
     lbls_neg = {}
-    task = ['right_priority','left_priority','up_priority','down_priority',
-            'just_right','just_up','just_left','just_down',
-            'right_one_step','up_one_step','left_one_step','down_one_step',
-            'sea','far','bomb_far','chess_jump']
-
-    path_task = ['right_priority','left_priority','up_priority',
-                 'down_priority','just_right','just_up','just_left',
+    task = ['left_priority','up_priority','just_down', 'right_priority','flower','sea', 'down_priority',
+            'just_right', 'just_up', 'just_left', 'bomb_far','chess_jump',
+            'right_one_step','up_one_step','left_one_step','down_one_step']#'far',
+    # task = ['right_priority']
+    path_task = ['just_right','just_up','just_left',
                  'just_down','right_one_step','up_one_step',
                  'left_one_step','down_one_step']
+    right_up_path_task = ['right_priority','up_priority']
+
+    left_down_path_task = ['left_priority', 'down_priority']
     jump_task = ['chess_jump']
     sea_task = ['sea']
+    flower_task = ['flower']
+
     for task_name in tqdm(task):
         label_neg = []
         min_neg_num = min_neg_num_default
@@ -581,21 +600,43 @@ if __name__ == '__main__':
             max_pic_num = 5
             min_neg_num = 3
             labels_fit_rule = chess_jump(width, height, max_pic_num, label_B_size)
-        all_labels = generate_all_labels(width, height, max_pic_num, label_B_size)
-        if task_name in path_task:
-            all_path_labels = generate_all_path_labels(width, height, max_pic_num, label_B_size)
+        elif task_name == 'flower':
+            max_pic_num = 5
+            min_neg_num = 3
+            labels_fit_rule = flower(width, height, label_B_size)
+        all_labels = generate_all_labels(width, height, min(3,max_pic_num), label_B_size)
+        if task_name in left_down_path_task:
+            all_path_labels = generate_all_path_labels(width, height, max_pic_num, label_B_size, movement_list=['left','down'])
             label_neg = generate_neg_label(labels_fit_rule, all_path_labels, int(neg_num*path_p), min_neg_num)
             label_neg = label_neg + generate_neg_label(labels_fit_rule, all_labels, neg_num-int(neg_num*path_p), min_neg_num)
+        elif task_name in right_up_path_task:
+            all_path_labels = generate_all_path_labels(width, height, max_pic_num, label_B_size, movement_list=['right','up'])
+            label_neg = generate_neg_label(labels_fit_rule, all_path_labels, int(neg_num*path_p), min_neg_num)
+            label_neg = label_neg + generate_neg_label(labels_fit_rule, all_labels, neg_num-int(neg_num*path_p), min_neg_num)
+        elif task_name in path_task:
+            all_path_labels = generate_all_path_labels(width, height, max_pic_num, label_B_size, movement_list=['right', 'up','left','down'])
+            label_neg = generate_neg_label(labels_fit_rule, all_path_labels, int(neg_num * path_p), min_neg_num)
+            label_neg = label_neg + generate_neg_label(labels_fit_rule, all_labels, neg_num - int(neg_num * path_p),min_neg_num)
         elif task_name in jump_task:
             all_jump_labels = generate_all_jump_labels(width, height, max_pic_num, label_B_size)
             label_neg = generate_neg_label(labels_fit_rule, all_jump_labels, int(neg_num*jump_p), min_neg_num)
             label_neg = label_neg + generate_neg_label(labels_fit_rule, all_labels, neg_num-int(neg_num*jump_p), min_neg_num)
         elif task_name in sea_task:
-            all_down_lowest_labels = generate_all_down_lowest_labels(width, height, max_pic_num, label_B_size)
-            label_neg = generate_neg_label(labels_fit_rule, all_down_lowest_labels, int(neg_num*down_lowest_p), min_neg_num)
-            label_neg = label_neg + generate_neg_label(labels_fit_rule, all_labels, neg_num-int(neg_num*down_lowest_p), min_neg_num)
+            all_path_sea_labels = generate_all_path_labels(width, height, max_pic_num, label_B_size, background='sea')
+            label_neg = generate_neg_label(labels_fit_rule, lbls_pos['just_down'], int(neg_num*just_down_p), min_neg_num)
+            label_neg = label_neg + generate_neg_label(labels_fit_rule, all_path_sea_labels, int(neg_num*sea_path_p), min_neg_num)
+            label_neg = label_neg + generate_neg_label(labels_fit_rule, all_labels, neg_num-int(neg_num*just_down_p)-int(neg_num*sea_path_p), min_neg_num)
+        elif task_name in flower_task:
+            all_path_flower_labels = generate_all_path_labels(width, height, max_pic_num, label_B_size, background='flower')
+            label_neg = generate_neg_label(labels_fit_rule, lbls_pos['right_priority'], int(neg_num*right_priority_p), min_neg_num)
+            label_neg = label_neg + generate_neg_label(labels_fit_rule, all_path_flower_labels, int(neg_num*flower_path_p), min_neg_num)
+            label_neg = label_neg + generate_neg_label(labels_fit_rule, all_labels, neg_num-int(neg_num*right_priority_p)-int(neg_num*flower_path_p), min_neg_num)
         else:
             label_neg = generate_neg_label(labels_fit_rule, all_labels, neg_num, min_neg_num)
+
+        if len(labels_fit_rule)>max_pos_num:
+            labels_fit_rule = rd.sample(labels_fit_rule, max_pos_num)
+
         lbls_pos[task_name] = labels_fit_rule
         lbls_neg[task_name] = label_neg
         imgs_pos[task_name] = generate_images_by_labels(labels_fit_rule)

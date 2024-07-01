@@ -1,42 +1,78 @@
-import random
-
 import numpy as np
 import random as rd
 
 class MarioDataLoader:
-    def __init__(self, config):
-        self.dataset = config['dataset']
-        dataset_path = config['data_path'] + 'dataset/' +self.dataset +'.npz'
-        self.data_zip = np.load(dataset_path, encoding='latin1', allow_pickle=True)
-        # self.imgs_pos = self.data_zip['images_pos'].item()
-        # self.imgs_neg = self.data_zip['images_neg'].item()
-        self.lbls_pos = self.data_zip['labels_pos'].item()
-        self.lbls_neg = self.data_zip['labels_neg'].item()
-        self.train_task = config['train_task']
-        self.test_task = config['test_task']
-        self.train_task_num = len(self.train_task)
-        self.test_task_num = len(self.test_task)
-        self.num_neg_per_task = len(self.lbls_neg[self.train_task[0]])
-        self.pos_train_num = {}
-        self.pos_test_num = {}
-        for key in self.lbls_pos:
-            self.pos_test_num[key] = int(len(self.lbls_pos[key]) * config['test_p'])
-            self.pos_train_num[key] = len(self.lbls_pos[key]) - self.pos_test_num[key]
-            random.shuffle(self.lbls_pos[key])       # imgs is not considered yet
-            random.shuffle(self.lbls_neg[key])
+    def __init__(self, config, path_manager=None, mode='PPO'):
+        self.len_guarantee_task = config['len_guarantee_task']
+        self.all_task = config['all_task']
 
-        self.neg_test_num = int(self.num_neg_per_task*config['test_p'])
-        self.neg_train_num = self.num_neg_per_task - self.neg_test_num
+        if mode == 'AbdGen':
+            self.task = config['task']
+            dataset_path = path_manager.get_gen_file('dataset', 'mario_' +self.task+ '.npz')
+            self.data_zip = np.load(dataset_path, encoding='latin1', allow_pickle=True)
+            self.img_size = config['input_size']
+            self.imgs_pos = self.data_zip['images_pos'].item()[self.task]
+            self.imgs_neg = self.data_zip['images_neg'].item()[self.task]
+            self.lbls_pos = self.data_zip['labels_pos'].item()[self.task]
+            self.lbls_neg = self.data_zip['labels_neg'].item()[self.task]
 
-        self.test_pos_num = {}
-        for task_name in self.test_task:
-            self.test_pos_num[task_name] = len(self.lbls_pos[task_name])
+            if self.task in self.len_guarantee_task:
+                len_guarantee_index_pos = [index for index in range(len(self.lbls_pos)) if len(self.lbls_pos[index][0]) > 2]
+                len_guarantee_index_neg = [index for index in range(len(self.lbls_neg)) if len(self.lbls_neg[index][0]) > 2]
+                self.imgs_pos = [self.imgs_pos[len_guarantee_index_pos[i]] for i in range(len(len_guarantee_index_pos))]
+                self.imgs_neg = [self.imgs_neg[len_guarantee_index_neg[i]] for i in range(len(len_guarantee_index_neg))]
+                self.lbls_pos = [self.lbls_pos[len_guarantee_index_pos[i]] for i in range(len(len_guarantee_index_pos))]
+                self.lbls_neg = [self.lbls_neg[len_guarantee_index_neg[i]] for i in range(len(len_guarantee_index_neg))]
 
-        self.num_pos = config['num_pos']
-        self.num_neg = config['num_neg']
+            self.img_mean = np.mean(np.concatenate([np.concatenate(self.imgs_pos, axis=0),
+                                               np.concatenate(self.imgs_neg, axis=0)], axis=0), axis=0)
+            self.img_std = np.std(np.concatenate([np.concatenate(self.imgs_pos, axis=0),
+                                                        np.concatenate(self.imgs_neg, axis=0)], axis=0), axis=0)
+
+            self.num_bag_per_batch = config['num_bag_per_batch']
+            self.num_pos_per_bag = config['num_pos_per_bag']
+            self.num_neg_per_bag = config['num_neg_per_bag']
+
+            combined_pos = list(zip(self.imgs_pos, self.lbls_pos))
+            combined_neg = list(zip(self.imgs_neg, self.lbls_neg))
+            rd.shuffle(combined_pos)
+            rd.shuffle(combined_neg)
+            self.imgs_pos, self.lbls_pos = zip(*combined_pos)
+            self.imgs_neg, self.lbls_neg = zip(*combined_neg)
+
+        elif mode == 'PPO':
+            dataset_path = config['data_path']
+            self.data_zip = np.load(dataset_path, encoding='latin1', allow_pickle=True)
+            self.train_task = config['train_task']
+            self.test_task = config['test_task']
+            self.train_task_num = len(self.train_task)
+            self.test_task_num = len(self.test_task)
+            self.lbls_pos = self.data_zip['labels_pos'].item()
+            self.lbls_neg = self.data_zip['labels_neg'].item()
+
+            self.num_neg_per_task = len(self.lbls_neg[self.train_task[0]])
+            self.pos_train_num = {}
+            self.pos_test_num = {}
+            for key in self.lbls_pos:
+                self.pos_test_num[key] = int(len(self.lbls_pos[key]) * config['test_p'])
+                self.pos_train_num[key] = len(self.lbls_pos[key]) - self.pos_test_num[key]
+            self.neg_test_num = int(self.num_neg_per_task * config['test_p'])
+            self.neg_train_num = self.num_neg_per_task - self.neg_test_num
+
+            self.test_pos_num = {}
+            for task_name in self.test_task:
+                self.test_pos_num[task_name] = len(self.lbls_pos[task_name])
+
+            self.num_pos = config['num_pos']
+            self.num_neg = config['num_neg']
+
+            for key in self.lbls_pos:
+                rd.shuffle(self.lbls_pos[key])
+                rd.shuffle(self.lbls_neg[key])
+
         self.max_pic_num = config['max_pic_num']
         self.grd_map = config['grd_map']
-        self.len_guarantee_task =  config['len_guarantee_task']
+
 
     def grd_label_to_array_label(self, case):
         array_label = np.zeros((self.max_pic_num + 4), dtype=np.int16)
@@ -49,6 +85,13 @@ class MarioDataLoader:
         for i in range(1, 4):
             array_label[self.max_pic_num + i] = case[1][i]
         return array_label
+
+    def img_to_max_len(self, img_case, img_mean, img_std):
+        padding_imgs = -np.ones((self.max_pic_num, self.img_size[0], self.img_size[1], self.img_size[2]), dtype=np.float32)
+        for i in range(self.max_pic_num):
+            if i < len(img_case):
+                padding_imgs[i] = (img_case[i].astype(np.float32)-img_mean)/img_std
+        return padding_imgs
 
     def get_train_data(self, task_name=None):
         # sample task
@@ -93,11 +136,8 @@ class MarioDataLoader:
                 elif flag and mode =='test':
                     pos_case_index = np.random.choice(range(pos_train_num, pos_train_num + pos_test_num), n_pos, replace=False)
 
-
         labels_pos = [self.grd_label_to_array_label(self.lbls_pos[task_name][i]) for i in pos_case_index]
         labels_neg = [self.grd_label_to_array_label(self.lbls_neg[task_name][i]) for i in neg_case_index]
-        # images_neg_this_task = [self.imgs_neg[this_task_name][i] for i in neg_case_index]
-        # images_pos_this_task = [self.imgs_pos[this_task_name][i] for i in pos_case_index]
 
         labels_pos = np.array(labels_pos)
         labels_neg = np.array(labels_neg)
@@ -122,10 +162,52 @@ class MarioDataLoader:
                 if flag:
                     pos_case_index = np.random.choice(range(pos_num), n_pos, replace=False)
 
-
         labels_pos = [self.grd_label_to_array_label(self.lbls_pos[task_name][i]) for i in pos_case_index]
         labels_neg = [self.grd_label_to_array_label(self.lbls_neg[task_name][i]) for i in neg_case_index]
 
         labels_pos = np.array(labels_pos)
         labels_neg = np.array(labels_neg)
         return labels_pos, labels_neg
+
+
+    def get_data_AbdGen(self):
+        # sample positive and negative cases for this test task
+        pos_num = len(self.lbls_pos)
+        neg_num = len(self.lbls_neg)
+        n_pos = self.num_pos_per_bag
+        n_neg = self.num_neg_per_bag
+        pos_case_index = np.random.choice(range(pos_num), n_pos, replace=False)
+        neg_case_index = np.random.choice(range(neg_num), n_neg, replace=False)
+
+        # priority task should guarantee at least one longest case is chosen
+        if self.task in self.len_guarantee_task:
+            flag = True
+            while flag:
+                for index in pos_case_index:
+                    if len(self.lbls_pos[index][0]) == self.max_pic_num:
+                        flag =False
+                        break
+                if flag:
+                    pos_case_index = np.random.choice(range(pos_num), n_pos, replace=False)
+            flag = True
+            while flag:
+                for index in neg_case_index:
+                    if len(self.lbls_neg[index][0]) == self.max_pic_num:
+                        flag =False
+                        break
+                if flag:
+                    neg_case_index = np.random.choice(range(neg_num), n_neg, replace=False)
+
+        labels_pos = [self.grd_label_to_array_label(self.lbls_pos[i]) for i in pos_case_index]
+        labels_neg = [self.grd_label_to_array_label(self.lbls_neg[i]) for i in neg_case_index]
+
+        imgs_pos = [self.img_to_max_len(self.imgs_pos[i], self.img_mean, self.img_std) for i in pos_case_index]
+        imgs_neg = [self.img_to_max_len(self.imgs_neg[i], self.img_mean, self.img_std) for i in neg_case_index]
+
+        labels_pos = np.array(labels_pos)
+        labels_neg = np.array(labels_neg)
+
+        imgs_pos = np.array(imgs_pos)
+        imgs_neg = np.array(imgs_neg)
+
+        return imgs_pos, labels_pos, imgs_neg, labels_neg

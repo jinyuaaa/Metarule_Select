@@ -1,9 +1,9 @@
-import config
+from config import config_mario
 import asyncio
 
-def case_writer(label):
-    max_pic_num = config.config['max_pic_num']
-    label_pl_map = config.config['label_pl_map']
+def case_writer_mario(label):
+    max_pic_num = config_mario.config['max_pic_num']
+    label_pl_map = config_mario.config['label_pl_map']
     case_str = 'f(['
     A_str_list = []
     B_str_list = []
@@ -22,8 +22,8 @@ def case_writer(label):
     return case_str
 
 
-def task_writer(task_name, pos_label, neg_label):
-    file_name = config.config['pl_path']+ 'task_' + task_name + '.pl'
+def task_writer_mario(task_name, pos_label, neg_label):
+    file_name = config_mario.config['pl_path']+ 'task_' + task_name + '.pl'
     with open(file_name, 'w') as f:
         f.write(":- ['task" + "_" + task_name + "_bk.pl'].\n")
         f.write("\n")
@@ -31,31 +31,31 @@ def task_writer(task_name, pos_label, neg_label):
         pos_list = []
         pos_str = "a :- Pos=["
         for j in range(len(pos_label)):
-            pos_list.append(case_writer(pos_label[j]))
+            pos_list.append(case_writer_mario(pos_label[j]))
         pos_str = pos_str + ',\n          '.join(pos_list) + '],\n'
 
         neg_list = []
         neg_str = "     Neg=["
         for j in range(len(neg_label)):
-            neg_list.append(case_writer(neg_label[j]))
+            neg_list.append(case_writer_mario(neg_label[j]))
         neg_str = neg_str + ',\n          '.join(neg_list) + '],\n'
         f.write(pos_str+neg_str+'     learn(Pos,Neg).')
 
-def bk_writer(task_name, metarule_statu):
-    file_name = config.config['pl_path'] + 'task_' + task_name + '_bk.pl'
-    num_metarule = config.config['num_metarule']
-    metarule_pl_map = config.config['metarule_pl_map']
+def bk_writer_mario(task_name, metarule_statu):
+    file_name = config_mario.config['pl_path'] + 'task_' + task_name + '_bk.pl'
+    num_metarule = config_mario.config['num_metarule']
+    metarule_pl_map = config_mario.config['metarule_pl_map']
 
     with open(file_name, 'w') as f:
-        f.write(config.bk_prepare[0])
+        f.write(config_mario.bk_prepare[0])
         for i in range(num_metarule):
             if metarule_statu[i] == 1.0:
                 f.write(metarule_pl_map[i])
         f.write("\n")
-        for i in config.bk_prepare[1:]:
+        for i in config_mario.bk_prepare[1:]:
             f.write(i)
 
-async def run_pl(file_path):
+async def run_pl(file_path, time):
     cmd = "/usr/bin/swipl --stack-limit=8g -s {} -g a -t halt".format(file_path)
     proc = await asyncio.create_subprocess_shell(
         cmd,
@@ -63,7 +63,7 @@ async def run_pl(file_path):
         stderr=asyncio.subprocess.PIPE)
 
     try:
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=config.config['pl_time_limit'])
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=time)
         if proc.returncode == 0:
             return 0, stdout.decode('UTF-8')
         else:
