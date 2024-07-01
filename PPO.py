@@ -7,7 +7,7 @@ import yaml
 from tqdm import *
 import torch
 from models.PPO_model import PPO
-from config import config_mario, config_mnist, config_dsprites
+from config import config_mario
 from utils.env import Mario_env
 from utils.utils import set_seed
 
