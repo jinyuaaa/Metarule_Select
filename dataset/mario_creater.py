@@ -509,8 +509,8 @@ if __name__ == '__main__':
     width = 3
     height = 3
     label_B_size = [width*height, 2, 3, 7]      # [target position, target type, background type, frame type]
-    neg_num = 3000
-    max_pos_num = 3000
+    neg_num = 2000
+    max_pos_num = 2000
     min_neg_num_default = 2
     path_p = 0.6        # the percentage of having path and terminate in neg case
     jump_p = 0.5        # the percentage of having jump and terminate path in neg case
