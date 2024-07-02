@@ -81,15 +81,15 @@ class PolicyNet(nn.Module):
                 pos_Self = self.Self_pos(pos_hidden, stored_pattern_padding_mask=pos_mask)
                 neg_Self = self.Self_neg(neg_hidden, stored_pattern_padding_mask=neg_mask)
             else:
-                pos_Self, _ = self.Self_pos(pos_hidden, key_padding_mask=pos_mask)
-                neg_Self, _ = self.Self_neg(neg_hidden, key_padding_mask=neg_mask)
+                pos_Self, _ = self.Self_pos(pos_hidden, pos_hidden, pos_hidden, key_padding_mask=pos_mask)
+                neg_Self, _ = self.Self_neg(neg_hidden, neg_hidden, neg_hidden, key_padding_mask=neg_mask)
         else:
             if self.hopfield:
                 pos_Self = self.Self_pos(pos_hidden)
                 neg_Self = self.Self_neg(neg_hidden)
             else:
-                pos_Self, _ = self.Self_pos(pos_hidden)
-                neg_Self, _ = self.Self_neg(neg_hidden)
+                pos_Self, _ = self.Self_pos(pos_hidden, pos_hidden, pos_hidden)
+                neg_Self, _ = self.Self_neg(neg_hidden, neg_hidden, neg_hidden)
 
         # [batch, max_pos+max_neg, n_hiddens]
         case_hidden = torch.concat((pos_Self, neg_Self), dim=1)
