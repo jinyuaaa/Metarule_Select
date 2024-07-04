@@ -12,6 +12,7 @@ class PathManager:
         self.rule_path = path_object['rule_path']
         self.result_path = path_object['result_path']
         self.pl_tmp_path = path_object['pl_tmp_path']
+        self.condition_gen_path = path_object['condition_gen_path']
         self.dataset = dataset
         self.exp_name = exp_name
 
@@ -22,6 +23,8 @@ class PathManager:
             path = os.path.join(self.exp_root_path, self.pl_tmp_path, self.dataset, self.exp_name)
         elif path_type == 'result':
             path = os.path.join(self.exp_root_path, self.result_path, self.dataset, self.exp_name)
+        elif path_type == 'gen':
+            path = os.path.join(self.exp_root_path, self.condition_gen_path, self.dataset, self.exp_name)
         else:
             raise NameError('unsupported mode.')
         if not os.path.exists(path):

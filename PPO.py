@@ -2,13 +2,13 @@ import matplotlib.pyplot as plt
 import argparse
 import os
 import numpy as np
-import pandas as pd
-import yaml
+import pickle as pkl
 from tqdm import *
+import yaml
 import torch
 from models.PPO_model import PPO
-from config import config_mario
-from utils.env import Mario_env
+from config import config_mario, config_mnist
+from utils.env import Mario_env, Mnist_env
 from utils.utils import set_seed
 
 if __name__ == '__main__':
@@ -17,11 +17,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Metarule Learner')
     # =================== basic setup =========================
     parser.add_argument('--dataset', type=str,
-                        help='dsprites or mario or mnist', default='mario')
+                        help='mario or mnist', default='mnist')
     args = parser.parse_args()
     args = {**vars(args)}
     if args['dataset'] == 'mario':
         config_object = config_mario.config
+    if args['dataset'] == 'mnist':
+        config_object = config_mnist.config
     set_seed(config_object['seed'])
 
     # ==================== parameter setup ====================
@@ -40,8 +42,11 @@ if __name__ == '__main__':
     log_file_path = config_object['log_file_path']
 
     # ==================== task setup =========================
-    train_task = config_object['train_task']
-    test_task = config_object['test_task']
+    if config_object['dataset'] == 'mario':
+        train_task = config_object['train_task']
+        test_task = config_object['test_task']
+    elif config_object['dataset'] == 'mnist':
+        all_task = config_object['all_task']
 
     if not os.path.exists(result_path):
         os.makedirs(result_path)
@@ -63,6 +68,8 @@ if __name__ == '__main__':
     # ==================== env setup =========================
     if config_object['dataset'] == 'mario':
         env = Mario_env(config_object)
+    elif config_object['dataset'] == 'mnist':
+        env = Mnist_env(config_object)
 
     # ==================== build model ========================
     state_shape = env.get_state_shape()
@@ -72,14 +79,16 @@ if __name__ == '__main__':
     train_reward_list = []
     test_in_train_case_reward_list = []
     test_case_reward_list = []
-    test_task_reward_list = []
+    if config_object['dataset'] == 'mario':
+        test_task_reward_list = []
 
     for i in tqdm(range(num_episodes)):
         state = env.reset()
         episode_train_reward = []
         episode_test_in_train_case_reward = []
         episode_test_case_reward = []
-        episode_test_task_reward = []
+        if config_object['dataset'] == 'mario':
+            episode_test_task_reward = []
 
         # save data in this episode
         transition_dict = {
@@ -113,32 +122,49 @@ if __name__ == '__main__':
         train_reward_list.append(np.mean(episode_train_reward))
 
         # test in train case to get a reward that can measure without exploratory disturbance
-        for task_name in train_task:
-            state = env.reset(task_name)
-            action = agent.take_action(np.expand_dims(state, axis=0), 'test')
-            reward = env.step(action)
-            episode_test_in_train_case_reward.append(reward)
-        test_in_train_case_reward_list.append(np.mean(episode_test_in_train_case_reward))
+        if config_object['dataset'] == 'mario':
+            for task_name in train_task:
+                state = env.reset(task_name)
+                action = agent.take_action(np.expand_dims(state, axis=0), 'test')
+                reward = env.step(action)
+                episode_test_in_train_case_reward.append(reward)
+            test_in_train_case_reward_list.append(np.mean(episode_test_in_train_case_reward))
 
 
-        # test case in train tasks
-        for task_name in train_task:
-            state = env.reset_test(task_name)
-            action = agent.take_action(np.expand_dims(state, axis=0), 'test')
-            reward = env.step(action)
-            episode_test_case_reward.append(reward)
-        test_case_reward_list.append(np.mean(episode_test_case_reward))
+            # test case in train tasks
+            for task_name in train_task:
+                state = env.reset_test(task_name)
+                action = agent.take_action(np.expand_dims(state, axis=0), 'test')
+                reward = env.step(action)
+                episode_test_case_reward.append(reward)
+            test_case_reward_list.append(np.mean(episode_test_case_reward))
 
-        # test tasks
-        for task_name in test_task:
-            state = env.reset_test(task_name)
-            action = agent.take_action(np.expand_dims(state, axis=0), 'test')
-            reward = env.step(action)
-            episode_test_task_reward.append(reward)
-        test_task_reward_list.append(np.mean(episode_test_task_reward))
+            # test tasks
+            for task_name in test_task:
+                state = env.reset_test(task_name)
+                action = agent.take_action(np.expand_dims(state, axis=0), 'test')
+                reward = env.step(action)
+                episode_test_task_reward.append(reward)
+            test_task_reward_list.append(np.mean(episode_test_task_reward))
+
+        elif config_object['dataset'] == 'mnist':
+            for task_name in all_task:
+                state = env.reset(task_name)
+                action = agent.take_action(np.expand_dims(state, axis=0), 'test')
+                reward = env.step(action)
+                episode_test_in_train_case_reward.append(reward)
+            test_in_train_case_reward_list.append(np.mean(episode_test_in_train_case_reward))
+
+            # test case in train tasks
+            for task_name in all_task:
+                state = env.reset_test(task_name)
+                action = agent.take_action(np.expand_dims(state, axis=0), 'test')
+                reward = env.step(action)
+                episode_test_case_reward.append(reward)
+            test_case_reward_list.append(np.mean(episode_test_case_reward))
 
         with open(log_file_path, 'a') as f:
-            print(f'iter:{i}',file=f)
+            print(f'iter:{i}', file=f)
             print(f'iter:{i}')
             print(f'train reward:{train_reward_list[-1:]}', file=f)
             print(f'train reward:{train_reward_list[-1:]}')
@@ -146,11 +172,12 @@ if __name__ == '__main__':
             print(f'test in train case reward:{test_in_train_case_reward_list[-1:]}')
             print(f'test case reward:{test_case_reward_list[-1:]}', file=f)
             print(f'test case reward:{test_case_reward_list[-1:]}')
-            print(f'test task reward:{test_task_reward_list[-1:]}', file=f)
-            print(f'test task reward:{test_task_reward_list[-1:]}')
+            if config_object['dataset']=='mario':
+                print(f'test task reward:{test_task_reward_list[-1:]}', file=f)
+                print(f'test task reward:{test_task_reward_list[-1:]}')
 
         # save model and plot
-        if i % 100 == 0:
+        if i % 25 == 0:
             torch.save(agent, model_path + 'agent_iter'+str(i)+'.pt')
 
             plt.plot(train_reward_list)
@@ -168,19 +195,21 @@ if __name__ == '__main__':
             plt.savefig(result_path+'test_case_reward_iter'+str(i)+'.png', bbox_inches='tight')
             plt.clf()
 
-            plt.plot(test_task_reward_list)
-            plt.title('test task reward')
-            plt.savefig(result_path+'test_task_reward_iter'+str(i)+'.png', bbox_inches='tight')
-            plt.clf()
+            if config_object['dataset'] == 'mario':
+                plt.plot(test_task_reward_list)
+                plt.title('test task reward')
+                plt.savefig(result_path+'test_task_reward_iter'+str(i)+'.png', bbox_inches='tight')
+                plt.clf()
 
             data = {
                 'train reward': train_reward_list,
                 'test_in_train_case_reward': test_in_train_case_reward_list,
-                'test case reward': test_case_reward_list,
-                'test task reward': test_task_reward_list
-            }
-            df = pd.DataFrame(data)
-            df.to_excel(excel_file_path, index=False)
+                'test case reward': test_case_reward_list}
+
+            if config_object['dataset'] == 'mario':
+                data['test task reward'] = test_task_reward_list
+            with open(result_path + 'record', 'wb') as f:
+                pkl.dump(data, f)
 
     # ==================== plot ===========================
 
@@ -199,10 +228,11 @@ if __name__ == '__main__':
     plt.savefig(result_path + 'test_case_reward.png', bbox_inches='tight')
     plt.clf()
 
-    plt.plot(test_task_reward_list)
-    plt.title('test task reward')
-    plt.savefig(result_path + 'test_task_reward.png', bbox_inches='tight')
-    plt.clf()
+    if config_object['dataset'] == 'mario':
+        plt.plot(test_task_reward_list)
+        plt.title('test task reward')
+        plt.savefig(result_path + 'test_task_reward.png', bbox_inches='tight')
+        plt.clf()
 
     # ==================== save model ======================
     torch.save(agent, model_path + 'agent_final.pt')
