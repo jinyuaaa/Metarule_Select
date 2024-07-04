@@ -107,10 +107,9 @@ class Mario_env:
                 elif pl_result == 0:
                     # reward = -int(pow(2, np.sum(action[i])))
                     # reward = -int(np.sum(action[i]))
-                    pl_str, pl_len= read_pl_out(pl_out)
-                    reward = int(pow(2, self.num_metarule-np.sum(action[i]))+8-2*pl_len)
+                    reward = int(pow(2, self.num_metarule-np.sum(action[i])))
                     result = self.task_name + ' sample No.' + str(i) + ':\n'
-                    result = result + pl_str + '\n'
+                    result = result + read_pl_out(pl_out) + '\n'
                     result = result + 'reward: '+str(reward)+'\n'
                     print(result,file=f)
                     print(result)
@@ -219,9 +218,12 @@ class Mnist_env:
                 elif pl_result == 0:
                     # reward = -int(pow(2, np.sum(action[i])))
                     # reward = -int(np.sum(action[i]))
-                    reward = int(pow(2, self.num_metarule-np.sum(action[i])))
+                    # pl_str, pl_len= read_pl_out(pl_out, need_len=True)
+                    # reward = int(pow(2, self.num_metarule-np.sum(action[i]))+16-4*pl_len)
+                    pl_str = read_pl_out(pl_out)
+                    reward = int(pow(2, self.num_metarule - np.sum(action[i])))
                     result = self.task_name + ' sample No.' + str(i) + ':\n'
-                    result = result + read_pl_out(pl_out) + '\n'
+                    result = result + pl_str + '\n'
                     result = result + 'reward: '+str(reward)+'\n'
                     print(result,file=f)
                     print(result)

@@ -478,10 +478,24 @@ def generate_neg_label(labels_pos, labels_all, num, min_neg_len):
             labels_neg.append(label_now)
     return labels_neg
 
-def generate_images_by_label(label):
+def generate_single_image(labels):
+    agent_pos = labels[0]
+    target_pos = labels[1]
+    target_type = labels[2]
+    background_type = labels[3]
+    frame_type = labels[4]
+    img = draw_mario_world(X=width, Y=height,
+                           agent_x=agent_pos[0], agent_y=agent_pos[1],
+                           target_x=target_pos[0], target_y=target_pos[1],
+                           agent_icon=agents[0], target_icon=targets[target_type],
+                           background_tile=backgrounds[background_type],
+                           frame_tile=frames[frame_type])
+    return img
+
+def generate_images_by_label(labels):
     image_seq = []
-    pos_info = label[0]
-    other_info = label[1]
+    pos_info = labels[0]
+    other_info = labels[1]
     for pos_now in pos_info:
         target_pos_now = other_info[0]
         target_type = other_info[1]
@@ -496,16 +510,22 @@ def generate_images_by_label(label):
         image_seq.append(img_now)
     return image_seq
 
-def generate_images_by_labels(labels):
+def generate_images_by_labels(labels, pre=False):
     images_in_cases = []
-    for label in labels:
-        images_in_cases.append(generate_images_by_label(label))
+    if pre:
+        for lbl in labels:
+            images_in_cases.append(generate_single_image(lbl))
+    else:
+        for lbl in labels:
+            images_in_cases.append(generate_images_by_label(lbl))
     return images_in_cases
 
 
 if __name__ == '__main__':
     # =================== parameter set =====================
     random.seed(888)
+    gen_pre = True
+    p_pre = 0.01
     width = 3
     height = 3
     label_B_size = [width*height, 2, 3, 7]      # [target position, target type, background type, frame type]
@@ -520,8 +540,8 @@ if __name__ == '__main__':
     flower_path_p = 0.7
     # =================== folder set =====================
     folder = f'/home/jiny/AbdGen_data/dataset/'
-    # file = f'mario_right_priority.npz'
-    file = f'mario.npz'
+    file = f'mario_right_priority_pretrain.npz'
+    # file = f'mario.npz'
     if not os.path.exists(folder):
         os.makedirs(folder)
 
@@ -530,10 +550,10 @@ if __name__ == '__main__':
     lbls_pos = {}
     imgs_neg = {}
     lbls_neg = {}
-    task = ['left_priority','up_priority','just_down', 'right_priority','flower','sea', 'down_priority',
-            'just_right', 'just_up', 'just_left', 'bomb_far','chess_jump',
-            'right_one_step','up_one_step','left_one_step','down_one_step']#'far',
-    # task = ['right_priority']
+    # task = ['left_priority','up_priority','just_down', 'right_priority','flower','sea', 'down_priority',
+    #         'just_right', 'just_up', 'just_left', 'bomb_far','chess_jump',
+    #         'right_one_step','up_one_step','left_one_step','down_one_step']#'far',
+    task = ['right_priority']
     path_task = ['just_right','just_up','just_left',
                  'just_down','right_one_step','up_one_step',
                  'left_one_step','down_one_step']
@@ -637,20 +657,54 @@ if __name__ == '__main__':
         if len(labels_fit_rule)>max_pos_num:
             labels_fit_rule = rd.sample(labels_fit_rule, max_pos_num)
 
-        lbls_pos[task_name] = labels_fit_rule
-        lbls_neg[task_name] = label_neg
-        imgs_pos[task_name] = generate_images_by_labels(labels_fit_rule)
-        imgs_neg[task_name] = generate_images_by_labels(label_neg)
 
-        # test
-        # index_img = 0
-        # for imgs in imgs_pos[task[0]][0]:
-        #     test = Image.fromarray(imgs)
-        #     test.save("./test"+str(index_img)+".jpeg")
-        #     index_img+=1
+        if gen_pre:
+            all_label_set = set()
+            for i in range(len(labels_fit_rule)):
+                temp = labels_fit_rule[i][1][:]
+                if len(labels_fit_rule[i][0])>2:
+                    for j in range(len(labels_fit_rule[i][0])):
+                        pos = labels_fit_rule[i][0][j]
+                        temp_2 = temp[:]
+                        temp_2.insert(0, pos)
+                        temp_2 = tuple(temp_2)
+                        all_label_set.add(temp_2)
 
-    np.savez(os.path.join(folder, file),
-             images_pos=imgs_pos,
-             images_neg=imgs_neg,
-             labels_pos=lbls_pos,
-             labels_neg=lbls_neg)
+            for i in range(len(label_neg)):
+                temp = label_neg[i][1][:]
+                if len(label_neg[i][0])>2:
+                    for j in range(len(label_neg[i][0])):
+                        pos = label_neg[i][0][j]
+                        temp_2 = temp[:]
+                        temp_2.insert(0, pos)
+                        temp_2 = tuple(temp_2)
+                        all_label_set.add(temp_2)
+
+            total_img_num = len(all_label_set)
+            pre_img_num = int(total_img_num*p_pre)
+            all_label_list = list(all_label_set)
+            pre_label = rd.sample(all_label_list, pre_img_num)
+            pre_img = generate_images_by_labels(pre_label,pre=True)
+            np.savez(os.path.join(folder, file),
+                     images_pre={task_name:pre_img},
+                     labels_pre={task_name:pre_label})
+
+        else:
+            lbls_pos[task_name] = labels_fit_rule
+            lbls_neg[task_name] = label_neg
+            imgs_pos[task_name] = generate_images_by_labels(labels_fit_rule)
+            imgs_neg[task_name] = generate_images_by_labels(label_neg)
+
+            # test
+            # index_img = 0
+            # for imgs in imgs_pos[task[0]][800]:
+            #     test = Image.fromarray(imgs)
+            #     test.save("./test"+str(index_img)+".jpeg")
+            #     index_img+=1
+
+            np.savez(os.path.join(folder, file),
+                     images_pos=imgs_pos,
+                     images_neg=imgs_neg,
+                     labels_pos=lbls_pos,
+                     labels_neg=lbls_neg)
+
