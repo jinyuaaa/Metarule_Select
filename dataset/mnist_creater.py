@@ -223,20 +223,20 @@ if __name__ == '__main__':
     lbls_pos = {}
     imgs_neg = {}
     lbls_neg = {}
-    # source_image = defaultdict(list)
-    # for sign in sign_list:
-    #     source_image_path = mnist_dir+'/'+sign
-    #     png_files = [f for f in os.listdir(source_image_path) if f.lower().endswith('.png')]
-    #     source_image_name=[os.path.join(source_image_path, f) for f in png_files]
-    #     for name in tqdm(source_image_name):
-    #         with Image.open(name) as img:
-    #             img_array = np.array(img, dtype=np.int16)
-    #             source_image[int(sign)].append(img_array)
+    source_image = defaultdict(list)
+    for sign in sign_list:
+        source_image_path = mnist_dir+'/'+sign
+        png_files = [f for f in os.listdir(source_image_path) if f.lower().endswith('.png')]
+        source_image_name=[os.path.join(source_image_path, f) for f in png_files]
+        for name in tqdm(source_image_name):
+            with Image.open(name) as img:
+                img_array = np.array(img, dtype=np.int16)
+                source_image[int(sign)].append(img_array)
     #
     # np.savez('./mnist_source_imgs.npz', mnist_imgs=source_image)
 
-    source_image = np.load('./mnist_source_imgs.npz', encoding='latin1', allow_pickle=True)
-    source_image = source_image['mnist_imgs'].item()
+    # source_image = np.load('./mnist_source_imgs.npz', encoding='latin1', allow_pickle=True)
+    # source_image = source_image['mnist_imgs'].item()
 
     for task in tqdm(task_names):
         if task == 'add_priority':
